@@ -1,8 +1,10 @@
 import boto3
 import click
 from botocore.exceptions import ClientError
+from pathlib import Path 
+import mimetypes 
 
-session = boto3.Session(profile_name='METheGreat93')
+session = boto3.Session(profile_name='Basic_User')
 s3 = boto3.resource('s3')
 
 
@@ -30,7 +32,7 @@ def list_buckets_objects(bucket):
 @click.argument('bucket')
 def setup_bucket(bucket):
     "Create and configure S3 bucket"
-    s3bucket = s3.create_bucket(Bucket='thegreatbucket23')
+    s3bucket = s3.create_bucket(Bucket='webs2019')
 
     try:
        s3_bucket = s3.create_bucket(
@@ -53,7 +55,7 @@ def setup_bucket(bucket):
           }]} 
 
     pol = s3.BucketPolicy(s3bucket)
-    return
+   
 
     ws = s3Bucket.Website()
     ws.put(WebsiteConfiguration={
@@ -63,7 +65,33 @@ def setup_bucket(bucket):
         'IndexDocument': {
              'Suffix': 'index.html'
      }})
+    
+    return
 
+def upload_file(s3_bucket, path, key):
+        content_type = mimetypes.guess_type(key)[0] or 'text/plain'
+        s3_bucket.upload_file(
+                path,
+                key,
+                ExtraArgs={
+                        'ContentType': 'text/html'
+                })
+@cli.command('sync')
+@click.argument('pathname', type=click.Path(exists=True))
+@click.argument('bucket')
+def sync(pathname, bucket):
+        "Sync contents of PATHANME to BUCKET"
+        s3_bucket = s3.Bucket(bucket)
+        # Get full absolute path of directory 
+        root = Path(pathname).expanduser().resolve()
 
+        def perform_operation(target):
+                for p in target.iterdir():
+                        if p.is_dir(): perform_operation(p)
+                        if p.is_file(): upload_file(s3_bucket, str(p), str(p.relative_to(root)))
+
+        perform_operation(root)
+        
+        
 if __name__ == '__main__':
     cli()
