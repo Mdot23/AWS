@@ -10,6 +10,8 @@ sys = "*"
 
 [dev-packages]
 ipyhton = "*"
+pylint = "*"
+pylint3 = "*"
 
 [requires]
 python_version = "3.7"

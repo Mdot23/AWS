@@ -1,48 +1,54 @@
+"""
+Deploy websites with AWS for S3
+
+Automates the process of deploying static websites for S3 
+- Configure AWS S3 buckets 
+  - Create them
+  - Set them up for static web hosting 
+  - Deploy local files to them 
+"""
+
 import boto3
 import click
-from botocore.exceptions import ClientError
-from pathlib import Path 
-import mimetypes 
+from bucket import BucketManager 
 
-session = boto3.Session(profile_name='Basic_User')
-s3 = boto3.resource('s3')
-
+session = None
+bucket_manager = None 
 
 @click.group()
-def cli():
-    pass
+@click.option('--profile', default=None,
+    help="Use a givne AWS profile.")
+def cli(profile):
+    # If profile name value, session config is assigned to that value 
+    global session, bucket_manager 
+    session_cfg = {}
+    if profile:
+            session_cfg['profile_name'] = profile
 
+    session = boto3.Session(**session_cfg)
+    bucket_manager = BucketManager(session)
 
 @cli.command('list-buckets')
 def list_buckets():
     "List all s3 buckets"
-    for bucket in s3.buckets.all():
-        print(bucket)
+    for bucket in bucket_manager.all_buckets():
+        print(bucket.name)
 
 
 @cli.command('list-bucket-objects')
 @click.argument('bucket')
 def list_buckets_objects(bucket):
     "List objects in a bucket"
-    for obj in s3.Bucket(bucket).objects.all():
+    for obj in bucket_manager.all_objects(bucket):
         print(obj)
 
 
 @cli.command('setup-bucket')
 @click.argument('bucket')
 def setup_bucket(bucket):
-    "Create and configure S3 bucket"
-    s3bucket = s3.create_bucket(Bucket='webs2019')
-
-    try:
-       s3_bucket = s3.create_bucket(
-          Bucket=bucket
-       )
-    except ClientError as e:
-        if e.resposne['Error']['Code'] == 'BucketAlreadyOwnedByYou':
-            s3_bucket = s3.Bucket(bucket)
-
-
+    bucket_manager.init_bucket(bucket)
+    bucket_manager.set_policy(s3_bucket)
+    bucket_manager.configure_website(s3_bucket)
     policy = {
         "Version":"2012-10-17",
         "Statement":[{
@@ -53,45 +59,17 @@ def setup_bucket(bucket):
           "Resource":["arn:aws:s3:::%s/*" %s3bucket
           ]
           }]} 
-
-    pol = s3.BucketPolicy(s3bucket)
-   
-
-    ws = s3Bucket.Website()
-    ws.put(WebsiteConfiguration={
-         'ErrorDocument': {
-         'Key': 'erro.html'
-         },
-        'IndexDocument': {
-             'Suffix': 'index.html'
-     }})
     
     return
 
-def upload_file(s3_bucket, path, key):
-        content_type = mimetypes.guess_type(key)[0] or 'text/plain'
-        s3_bucket.upload_file(
-                path,
-                key,
-                ExtraArgs={
-                        'ContentType': 'text/html'
-                })
 @cli.command('sync')
 @click.argument('pathname', type=click.Path(exists=True))
 @click.argument('bucket')
 def sync(pathname, bucket):
         "Sync contents of PATHANME to BUCKET"
         s3_bucket = s3.Bucket(bucket)
-        # Get full absolute path of directory 
-        root = Path(pathname).expanduser().resolve()
+        bucket_manager.sync(pathname, bucket)
 
-        def perform_operation(target):
-                for p in target.iterdir():
-                        if p.is_dir(): perform_operation(p)
-                        if p.is_file(): upload_file(s3_bucket, str(p), str(p.relative_to(root)))
-
-        perform_operation(root)
-        
         
 if __name__ == '__main__':
     cli()

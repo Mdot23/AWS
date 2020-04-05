@@ -12,3 +12,4 @@ Script currently has the following features:
 - List bucket 
 - List contents in bucket 
 - Create and set up bucket 
+- Sync directory tree to bucket 
