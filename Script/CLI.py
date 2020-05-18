@@ -67,9 +67,9 @@ def setup_bucket(bucket):
 @click.argument('bucket')
 def sync(pathname, bucket):
         "Sync contents of PATHANME to BUCKET"
-        s3_bucket = s3.Bucket(bucket)
         bucket_manager.sync(pathname, bucket)
-
+        print(bucket_manager.get_bucket_url(bucket_manager.s3.Bucket(bucket)))
+ 
         
 if __name__ == '__main__':
     cli()
